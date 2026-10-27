@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel docente – Simulador Matemático</title>
+<style>
+:root{--p:#173b72;--p2:#2563eb;--bg:#f4f7fb;--card:#fff;--line:#d9e0ea;--ink:#172033;--muted:#607086;--good:#137333;--bad:#b3261e}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}header{background:linear-gradient(135deg,#173b72,#2563eb);color:#fff;padding:24px 16px;text-align:center}header h1{margin:0 0 5px}.wrap{max-width:1200px;margin:auto;padding:18px}.card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:18px;margin:14px 0;box-shadow:0 4px 15px rgba(15,23,42,.06)}.controls{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end}label{font-weight:700}input,select{width:100%;padding:10px;border:1px solid #bcc7d5;border-radius:9px;margin-top:5px;font-size:15px}button{border:0;border-radius:9px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:var(--p2);color:#fff}.secondary{background:#e9eef6;color:var(--p)}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{border:1px solid var(--line);border-radius:10px;padding:13px;text-align:center}.stat b{display:block;font-size:24px;color:var(--p)}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:800px}th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}th{background:#eef3f9}.good{color:var(--good);font-weight:700}.bad{color:var(--bad);font-weight:700}.small{font-size:13px;color:var(--muted)}.hidden{display:none}.errorbox{background:#fff5f4;border-left:4px solid var(--bad);padding:10px;margin:8px 0;border-radius:7px}.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#e9eef6;color:var(--p);font-size:12px;font-weight:700}@media(max-width:800px){.controls{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}}@media(max-width:520px){.controls{grid-template-columns:1fr}.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>👨‍🏫 Panel del Docente</h1><div>Simulador Matemático · Unidad Educativa Jerusalén</div></header>
+<main class="wrap">
+<section id="login" class="card">
+<h2>Acceso docente</h2>
+<p class="small">Ingresa el PIN privado configurado en Google Apps Script.</p>
+<label>PIN docente<input id="pin" type="password" placeholder="PIN"></label><br><br>
+<button class="primary" onclick="loadResults()">Ver resultados</button>
+<p id="msg" class="small"></p>
+</section>
+<section id="panel" class="hidden">
+<div class="card">
+<h2>Resumen</h2>
+<div class="stats"><div class="stat"><b id="total">0</b>Intentos</div><div class="stat"><b id="students">0</b>Estudiantes</div><div class="stat"><b id="avg">0,00</b>Promedio</div><div class="stat"><b id="best">0,00</b>Mejor nota</div></div>
+</div>
+<div class="card">
+<h2>Filtros y exportación</h2>
+<div class="controls">
+<label>Buscar estudiante<input id="search" oninput="render()" placeholder="Nombre..."></label>
+<label>Nivel<select id="level" onchange="render()"><option value="">Todos</option><option>9.º EGB</option><option>10.º EGB</option><option>1.º BGU</option></select></label>
+<label>Ordenar<select id="sort" onchange="render()"><option value="date">Más recientes</option><option value="score">Mejor nota</option><option value="name">Nombre</option></select></label>
+<button class="secondary" onclick="downloadCSV()">Descargar CSV</button>
+</div>
+<p><button class="secondary" onclick="loadResults()">↻ Actualizar</button></p>
+</div>
+<div class="card"><h2>Resultados de estudiantes</h2><div id="table" class="tablewrap"></div></div>
+<div id="details"></div>
+</section>
+</main>
+<script>
+const BACKEND_URL='https://script.google.com/macros/s/AKfycbw7yNwFgqsKDimVMAjd67OvM4BVOrC6vfdj6oqDuEesccna8B5w-f3Zq2yuAxcoDT6c/exec';
+let DATA=[];
+function loadResults(){
+ const pin=document.getElementById('pin').value.trim();
+ if(!BACKEND_URL.startsWith('https://')||!BACKEND_URL.includes('/exec')){document.getElementById('msg').textContent='Primero configura BACKEND_URL con la URL /exec de Apps Script.';return}
+ document.getElementById('msg').textContent='Cargando...';
+ const cb='cb_'+Date.now();
+ window[cb]=function(res){try{delete window[cb]}catch(e){};if(!res.ok){document.getElementById('msg').textContent=res.error||'No autorizado.';return}DATA=res.results||[];document.getElementById('login').classList.add('hidden');document.getElementById('panel').classList.remove('hidden');updateSummary();render();};
+ const s=document.createElement('script');s.src=BACKEND_URL+'?action=results&pin='+encodeURIComponent(pin)+'&callback='+cb+'&_='+Date.now();s.onerror=function(){document.getElementById('msg').textContent='No se pudo conectar con el sistema de resultados.'};document.body.appendChild(s);
+}
+function filtered(){let a=[...DATA],q=document.getElementById('search').value.toLowerCase(),l=document.getElementById('level').value,s=document.getElementById('sort').value;a=a.filter(r=>(!q||r.name.toLowerCase().includes(q))&&(!l||r.level===l));if(s==='score')a.sort((x,y)=>y.score-x.score);else if(s==='name')a.sort((x,y)=>x.name.localeCompare(y.name));else a.sort((x,y)=>new Date(y.date)-new Date(x.date));return a}
+function updateSummary(){const names=new Set(DATA.map(r=>r.name.toLowerCase()));document.getElementById('total').textContent=DATA.length;document.getElementById('students').textContent=names.size;document.getElementById('avg').textContent=DATA.length?(DATA.reduce((a,r)=>a+r.score,0)/DATA.length).toFixed(2):'0,00';document.getElementById('best').textContent=DATA.length?Math.max(...DATA.map(r=>r.score)).toFixed(2):'0,00'}
+function render(){let a=filtered();let h='<table><thead><tr><th>Fecha</th><th>Estudiante</th><th>Nivel</th><th>Intento</th><th>Nota</th><th>Correctas</th><th>Incorrectas</th><th>%</th><th></th></tr></thead><tbody>';a.forEach((r,i)=>{h+=`<tr><td>${fmt(r.date)}</td><td><b>${esc(r.name)}</b></td><td><span class="pill">${esc(r.level)}</span></td><td>${r.attempt}</td><td><b>${r.score.toFixed(2)}</b></td><td class="good">${r.correct}</td><td class="bad">${r.incorrect}</td><td>${r.percentage}%</td><td><button class="secondary" onclick="showDetails(${r.row})">Errores</button></td></tr>`});h+='</tbody></table>';document.getElementById('table').innerHTML=a.length?h:'<p>No hay resultados con esos filtros.</p>'}
+function showDetails(row){const r=DATA.find(x=>x.row===row);if(!r)return;const bad=(r.questions||[]).filter(q=>!q.correct);let h=`<div class="card"><h2>Detalle: ${esc(r.name)} · Intento #${r.attempt}</h2><p><b>${esc(r.level)}</b> · Nota ${r.score.toFixed(2)}/10 · ${r.correct}/${(r.correct+r.incorrect)} correctas</p>`;if(!bad.length)h+='<p class="good">No tuvo errores en este intento.</p>';else bad.forEach((q,i)=>{h+=`<div class="errorbox"><b>${i+1}. ${esc(q.question)}</b><p class="bad">Respuesta del estudiante: ${esc(q.answer)}</p><p class="good">Respuesta correcta: ${esc(q.right)}</p><p class="small">Tema: ${esc(q.topic||'')}</p></div>`});h+='</div>';document.getElementById('details').innerHTML=h;window.scrollTo({top:document.getElementById('details').offsetTop-20,behavior:'smooth'})}
+function downloadCSV(){let a=filtered(),rows=[['Fecha','Estudiante','Nivel','Intento','Nota','Correctas','Incorrectas','Porcentaje'],...a.map(r=>[fmt(r.date),r.name,r.level,r.attempt,r.score,r.correct,r.incorrect,r.percentage+'%'])];let csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');let blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),aEl=document.createElement('a');aEl.href=url;aEl.download='resultados_simulador.csv';aEl.click();URL.revokeObjectURL(url)}
+function fmt(d){return new Date(d).toLocaleString('es-EC')}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script>
+</body></html>
